@@ -46,34 +46,51 @@ fs.readFile('treeoflife.json', 'utf8', function (err, data) {
   // The nodes and edges are written sequentially
   console.log('')
   console.log('Start writing to the database.')
-  processData(0,0);
+  var nodes_idx = {}
+  nodes_idx.start = 0
+  nodes_idx.end = 50
+  var edges_idx = {}
+  edges_idx.start = 0
+  edges_idx.end = edge_data.length
+  console.log('processData launched.........')
+  processData(nodes_idx,edges_idx);
+
+  var nodes_idx2 = {}
+  nodes_idx2.start = 51
+  nodes_idx2.end = 100
+  var edges_idx2 = {}
+  edges_idx2.start = 0
+  edges_idx2.end = 0
+  console.log('processData launched.........')
+  //processData(nodes_idx2,edges_idx2);
   // A command closing the connection is missing, like:
   //client.closeConnection();
+
 });
 
 
 
 // Function to load the data to the graphDB
-var processData = function(node_list_index,edge_list_index){
+var processData = function(nodes_idx,edges_idx){
   // First step: Write the nodes
-  var nb_nodes = 50; // Number of nodes to write, full data: node_data.length
-  if( node_list_index < nb_nodes ) {
+  if( nodes_idx.start < nodes_idx.end ) {
     //console.log('Process node ' + list_index);
-    writeNode(node_data[node_list_index], node_list_index, edge_list_index)
+    writeNode(node_data[nodes_idx.start], nodes_idx, edges_idx)
   }
   // Second step: write the edges
   // The nodes must exist before writing the edges!
-  else  { 
-    if (nb_nodes == node_list_index){
+  else  {
+    if (nodes_idx.start == nodes_idx.end){
       // Display the time spend to write nodes
       console.timeEnd("Time_to_save_nodes");
-      node_list_index = node_list_index + 1 // to avoid calling timeEnd multiple times
+      nodes_idx.start = nodes_idx.start + 1 // to avoid calling timeEnd multiple times
     }
-    if (edge_list_index < edge_data.length) {
-      writeEdge(edge_data[edge_list_index], node_list_index, edge_list_index)
+    if (edges_idx.start < edges_idx.end) {
+      writeEdge(edge_data[edges_idx.start], nodes_idx, edges_idx)
     }
     else {
-      console.log('Loading done. '+ (node_list_index-1) + ' nodes written.')
+      var nb_nodes_written = Object.keys(node_index_table).length;
+      console.log('Loading done. '+ nb_nodes_written + ' nodes written.')
       console.timeEnd("dbtotalsave");
     }
   }
@@ -83,7 +100,7 @@ var processData = function(node_list_index,edge_list_index){
 
 // Function to save the node
 var node_index_table = {}
-var writeNode = function(node,node_list_index,edge_list_index){
+var writeNode = function(node,nodes_idx,edges_idx){
   var gremlin_query = "g.addV('species').property('node_id', node_id).property('name', name)" +
       ".property('phylesis', phylesis).property('extinct', extinct).property('confidence', confidence)" +
       ".property('childcount', childcount).id()";
@@ -97,7 +114,8 @@ var writeNode = function(node,node_list_index,edge_list_index){
       // Save the node ID in an index table (used for loading the edges)
       node_index_table[node['ID']] = results[0]
       //
-      handleStack(node_list_index+1,edge_list_index,processData)
+      nodes_idx.start = nodes_idx.start+1
+      handleStack(nodes_idx,edges_idx,processData)
       //processNodes(list_index+1);
     }
   );
@@ -105,19 +123,21 @@ var writeNode = function(node,node_list_index,edge_list_index){
 
 
 
-var writeEdge = function(edge,node_list_index,edge_list_index){
+var writeEdge = function(edge,nodes_idx,edges_idx){
   if ((edge.source in node_index_table) &&(edge.target in node_index_table)){ // if the nodes exist, create the edges
     var source_idx = node_index_table[edge.source]
     var target_idx = node_index_table[edge.target] 
     client.execute("g.V(source).addE('descendant').to(g.V(target))", { source: source_idx, target: target_idx}, (err, results) => {
       if (err) return console.error(err);
       //console.log(JSON.stringify(results));
-      console.log('Edge '+ edge_list_index + ' with source node '+ source_idx+ ' and target node '+ target_idx + ' written.')
-      handleStack(node_list_index,edge_list_index+1,processData)
+      console.log('Edge '+ edges_idx.start + ' with source node '+ source_idx+ ' and target node '+ target_idx + ' written.')
+      edges_idx.start = edges_idx.start + 1
+      handleStack(nodes_idx,edges_idx,processData)
     });
   } else {
     //console.log('Warning, Node missing for the creation of edge number' + list_index)
-    handleStack(node_list_index, edge_list_index+1,processData)
+    edges_idx.start = edges_idx.start + 1
+    handleStack(nodes_idx, edges_idx,processData)
   }
 };
 
@@ -130,7 +150,7 @@ var handleStack = function(node_index, edge_index, function_to_process){
   // Every 1000 steps, clear the stack
   
   //console.log(sumidx) 
-  if( (node_index+edge_index) % 1000 === 0 ) {
+  if( (node_index.start+edge_index.start) % 1000 === 0 ) {
     //console.log("Node " + node_index + ", edge " + edge_index)
     setTimeout(function(){function_to_process(node_index, edge_index);},0); // this allows to clear the stack before overflow
   } else {
