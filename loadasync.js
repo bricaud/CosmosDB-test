@@ -11,6 +11,12 @@ var node_data;
 var edge_data;
 
 
+var now = new Date();
+var start_time = now.getTime();
+var node_inter_time = now.getTime();
+var edge_inter_time = now.getTime();
+
+var time_since_start = 0
 
 // Connect to the server
 const client = Gremlin.createClient(
@@ -64,8 +70,8 @@ function readDataFile(callback) {
  
     // Launch the iterative process
     // The nodes and edges are written sequentially
-
-    callback(null,node_data);
+    var process_limit = 40;
+    callback(null, node_data, process_limit);
 
     // A command closing the connection is missing, like:
     //client.closeConnection();
@@ -74,10 +80,10 @@ function readDataFile(callback) {
 }
 
 
-var start_time = new Date().getTime();
+
 function initProcess(callback){
   // Measure the time to load the data
-  start_time = new Date().getTime();
+  start_time = now.getTime();
   callback();
 }
 
@@ -90,7 +96,7 @@ function endProcess(callback){
 }
 
 
-var time_since_start = 0
+
 
 function regular_info(){
   var nb_nodes_to_write = Object.keys(node_data).length;
@@ -102,6 +108,7 @@ function regular_info(){
   var nb_nodes_timed_out = Object.keys(timeout_node_list).length;
   console.log('Nb of node requests that timed out: ' + nb_nodes_timed_out )
   console.log('written + lost + timed_out: ' + (nb_nodes_written + nb_nodes_missed + nb_nodes_timed_out) )
+  console.log('Time spent for writing nodes: ' + (node_inter_time/1000/60) + 'min')
   console.log('------------------------------------')
   var nb_edges_to_write = Object.keys(edge_data).length;
   console.log('Nb of edges in file: ' + nb_edges_to_write)
@@ -111,7 +118,7 @@ function regular_info(){
   var nb_edges_timed_out = Object.keys(timeout_edge_list).length;
   console.log('Nb of edge requests that timed out: ' + nb_edges_timed_out )  
   console.log('written + lost + timed_out: ' + (nb_edges_being_written + nb_edges_missed + nb_edges_timed_out) )
-
+  console.log('Time spent for writing nodes and edges: ' + (edge_inter_time/1000/60) + 'min')
   // Query the number of nodes and edges (asynchroneous!)  
   var nodes_in_database = query_nb_nodes_edges();
   console.log('Time since started: ' + time_since_start + ' seconds, or ' + (time_since_start/60) + 'min')
@@ -129,10 +136,10 @@ var timeout_node_list = {};
 
 
 
-function writeTheNodes(node_data, callback){
+function writeTheNodes(node_data, process_limit, callback){
   console.log('')
   console.log('Start writing nodes to the database.')
-  async.eachOfLimit(node_data,40, wrapped_timeout_writeNode, function(err, result){
+  async.eachOfLimit(node_data,process_limit, wrapped_timeout_writeNode, function(err, result){
     // if any of the saves produced an error, err would equal that error
     if (err) {
       console.error(err);
@@ -140,21 +147,20 @@ function writeTheNodes(node_data, callback){
       return;
     }
     var time_step = new Date().getTime();
-    var diff_time2 = (time_step - start_time)
-    console.log("Time spent so far: " + diff_time2 + "ms or " + (diff_time2/1000/60) + " min.");
+    node_inter_time = (time_step - start_time)
+    console.log("Time spent so far: " + node_inter_time + "ms or " + (node_inter_time/1000/60) + " min.");
     callback();
   });
 }
 
 
 function writeNode(node, node_key, callback){
-  console.log(node_key)
   var gremlin_query = "g.addV('species').property('node_id', node_id).property('name', name)" +
       ".property('phylesis', phylesis).property('extinct', extinct).property('confidence', confidence)" +
       ".property('childcount', childcount).id()";
   var gremlin_bindings = { node_id: node['ID'], name: node.name, phylesis: node.PHYLESIS, 
       extinct: node.EXTINCT, confidence: node.CONFIDENCE, childcount: node.CHILDCOUNT};
-  console.log('node id ' + node['ID'] + ', node name ' + node.name);
+  console.log('Node nb: ' + node_key + ', node id ' + node['ID'] + ', node name ' + node.name);
   client.execute(gremlin_query, gremlin_bindings,
     (err, results) => {
       if (err) {
@@ -203,9 +209,9 @@ function retry_missed_nodes(callback){
     console.log('Retrying to load ' + nb_lost_nodes + ' missed nodes...')
     var lost_nodes_tmp = lost_nodes;
     lost_nodes = {};
-    writeTheNodes(lost_nodes_tmp,callback);
-  }
-  callback();
+    var process_limit = 10;
+    writeTheNodes(lost_nodes_tmp, process_limit, callback);
+  } else callback();
 }
 
 
@@ -225,13 +231,14 @@ function endNodeProcess(callback){
 ////////////////////////////////////////////////////////////////////////////////
 
 function get_edge_data(callback){
-  callback(null,edge_data);
+  var process_limit = 40;
+  callback(null,edge_data,process_limit);
 }
 
-function writeTheEdges(edge_data, callback){
+function writeTheEdges(edge_data, process_limit, callback){
   console.log('')
   console.log('Start writing edges to the database.')
-  async.eachOfLimit(edge_data,40, wrapped_timeout_writeEdge, function(err, result){
+  async.eachOfLimit(edge_data, process_limit, wrapped_timeout_writeEdge, function(err, result){
     // if any of the saves produced an error, err would equal that error
     if (err) {
       console.error(err);
@@ -239,8 +246,8 @@ function writeTheEdges(edge_data, callback){
       return;
     }
     var time_step = new Date().getTime()
-    var diff_time2 = time_step - start_time
-    console.log("Time spent so far: " + diff_time2 + "ms or " + (diff_time2/1000/60) + " min.");
+    edge_inter_time = time_step - start_time
+    console.log("Time spent so far: " + edge_inter_time + "ms or " + (edge_inter_time/1000/60) + " min.");
     callback();
   });
 }
@@ -304,9 +311,9 @@ function retry_missed_edges(callback){
     console.log('Retrying to load ' + nb_edges_lost + ' missed edges...')
     var lost_edges_tmp = lost_edges;
     lost_edges = {};
-    writeTheEdges(lost_edges_tmp, callback);
-  }
-  callback();
+    var process_limit = 10;
+    writeTheEdges(lost_edges_tmp, process_limit, callback);
+  } else callback();
 }
 
 
