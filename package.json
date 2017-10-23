@@ -1,0 +1,31 @@
+{
+  "name": "json2gremlin2graph",
+  "version": "0.0.3",
+  "description": "Code for loading data from a json file to a graphDB using Gremlin queries and Javascript",
+  "main": "loadasync.js",
+  "scripts": {
+    "test": "loadasync-test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bricaud/CosmosDB-test.git"
+  },
+  "keywords": [
+    "Graph",
+    "Graph",
+    "database",
+    "json",
+    "gremlin",
+    "cosmosDB",
+    "javascript"
+  ],
+  "author": "Benjamin Ricaud",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/bricaud/CosmosDB-test/issues"
+  },
+  "homepage": "https://github.com/bricaud/CosmosDB-test#readme",
+  "dependencies": {
+    "async": "^2.5.0"
+  }
+}
