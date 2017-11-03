@@ -22,12 +22,13 @@ node app.js
 
 ## Loading nodes in parallel, then edges in parallel
 
-The code for loading in parallel uses the javascript module `async`.
+The code for loading in parallel uses the javascript module [async](https://caolan.github.io/async/).
 
 ```
-node loadasync.js
+node testload.js
 ```
-The loading speed is much higher as it leverage the DB hability to handle multiple requests in parallel.
+The loading speed is much higher as it leverages the DB hability to handle multiple requests in parallel.
+The nodes are loaded first as you need the two nodes in the DB before creating an edge between them.
 
 
 This code is open-source, Apache 2.0 license.
