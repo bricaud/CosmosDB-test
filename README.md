@@ -28,6 +28,8 @@ The code for loading in parallel uses the javascript module [async](https://caol
 node testload.js
 ```
 The loading speed is much higher as it leverages the DB hability to handle multiple requests in parallel.
+
+
 The nodes are loaded first as you need the two nodes in the DB before creating an edge between them.
 
 
